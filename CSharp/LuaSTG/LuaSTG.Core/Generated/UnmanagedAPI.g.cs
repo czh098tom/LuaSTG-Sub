@@ -504,8 +504,49 @@ namespace LuaSTG.Core
         public delegate* unmanaged[Cdecl]<nuint, byte*, byte*> http_response_getHeader;
         public delegate* unmanaged[Cdecl]<nuint, uint> http_response_getBodyLength;
         public delegate* unmanaged[Cdecl]<nuint, byte*> http_response_getBodyData;
+        public delegate* unmanaged[Cdecl]<byte**, uint, nuint> dwrite_createFontCollection;
+        public delegate* unmanaged[Cdecl]<char*, nuint, int, int, int, float, char*, nuint> dwrite_createTextFormat;
+        public delegate* unmanaged[Cdecl]<char*, uint, nuint, float, float, nuint> dwrite_createTextLayout;
+        public delegate* unmanaged[Cdecl]<nuint> dwrite_createTextRenderer;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte*, float, uint, uint, byte> dwrite_createTextureFromTextLayout;
+        public delegate* unmanaged[Cdecl]<nuint, char*, float, byte, byte> dwrite_saveTextLayoutToFile;
+        public delegate* unmanaged[Cdecl]<nuint, void> dwrite_fontCollectionDestroy;
+        public delegate* unmanaged[Cdecl]<nuint, byte*> dwrite_fontCollectionGetDebugInformation;
+        public delegate* unmanaged[Cdecl]<nuint, void> dwrite_textFormatDestroy;
+        public delegate* unmanaged[Cdecl]<nuint, void> dwrite_textLayoutDestroy;
+        public delegate* unmanaged[Cdecl]<nuint, nuint, uint, uint, byte> dwrite_textLayoutSetFontCollection;
+        public delegate* unmanaged[Cdecl]<nuint, char*, uint, uint, byte> dwrite_textLayoutSetFontFamilyName;
+        public delegate* unmanaged[Cdecl]<nuint, char*, uint, uint, byte> dwrite_textLayoutSetLocaleName;
+        public delegate* unmanaged[Cdecl]<nuint, float, uint, uint, byte> dwrite_textLayoutSetFontSize;
+        public delegate* unmanaged[Cdecl]<nuint, int, uint, uint, byte> dwrite_textLayoutSetFontStyle;
+        public delegate* unmanaged[Cdecl]<nuint, int, uint, uint, byte> dwrite_textLayoutSetFontWeight;
+        public delegate* unmanaged[Cdecl]<nuint, int, uint, uint, byte> dwrite_textLayoutSetFontStretch;
+        public delegate* unmanaged[Cdecl]<nuint, byte, uint, uint, byte> dwrite_textLayoutSetStrikethrough;
+        public delegate* unmanaged[Cdecl]<nuint, byte, uint, uint, byte> dwrite_textLayoutSetUnderline;
+        public delegate* unmanaged[Cdecl]<nuint, float, byte> dwrite_textLayoutSetIncrementalTabStop;
+        public delegate* unmanaged[Cdecl]<nuint, int, float, float, byte> dwrite_textLayoutSetLineSpacing;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte> dwrite_textLayoutSetTextAlignment;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte> dwrite_textLayoutSetParagraphAlignment;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte> dwrite_textLayoutSetFlowDirection;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte> dwrite_textLayoutSetReadingDirection;
+        public delegate* unmanaged[Cdecl]<nuint, int, byte> dwrite_textLayoutSetWordWrapping;
+        public delegate* unmanaged[Cdecl]<nuint, float, byte> dwrite_textLayoutSetMaxWidth;
+        public delegate* unmanaged[Cdecl]<nuint, float, byte> dwrite_textLayoutSetMaxHeight;
+        public delegate* unmanaged[Cdecl]<nuint, float*, byte> dwrite_textLayoutDetermineMinWidth;
+        public delegate* unmanaged[Cdecl]<nuint, double*, byte> dwrite_textLayoutGetMetrics;
+        public delegate* unmanaged[Cdecl]<nuint, double*, byte> dwrite_textLayoutGetOverhangMetrics;
+        public delegate* unmanaged[Cdecl]<nuint, float> dwrite_textLayoutGetMaxHeight;
+        public delegate* unmanaged[Cdecl]<nuint, float> dwrite_textLayoutGetMaxWidth;
+        public delegate* unmanaged[Cdecl]<nuint, void> dwrite_textRendererDestroy;
+        public delegate* unmanaged[Cdecl]<nuint, uint, void> dwrite_textRendererSetTextColor;
+        public delegate* unmanaged[Cdecl]<nuint, uint, void> dwrite_textRendererSetTextOutlineColor;
+        public delegate* unmanaged[Cdecl]<nuint, float, void> dwrite_textRendererSetTextOutlineWidth;
+        public delegate* unmanaged[Cdecl]<nuint, uint, void> dwrite_textRendererSetShadowColor;
+        public delegate* unmanaged[Cdecl]<nuint, float, void> dwrite_textRendererSetShadowRadius;
+        public delegate* unmanaged[Cdecl]<nuint, float, void> dwrite_textRendererSetShadowExtend;
+        public delegate* unmanaged[Cdecl]<nuint, byte*, nuint, float, float, byte> dwrite_textRendererRender;
 
         /// <summary>C# 侧编译期已知的 API 数量</summary>
-        public const int ExpectedApiCount = 485;
+        public const int ExpectedApiCount = 526;
     }
 }

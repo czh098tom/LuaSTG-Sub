@@ -1,4 +1,13 @@
 #pragma once
+
+// coreclr 头在 Windows 上会引入 windows.h，必须先禁用 min/max 宏污染
+#ifndef NOMINMAX
+	#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <coreclr_delegates.h>
 #include <hostfxr.h>
 

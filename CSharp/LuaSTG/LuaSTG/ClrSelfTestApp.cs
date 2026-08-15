@@ -72,6 +72,87 @@ namespace LuaSTG
             LuaSTGAPI.SetFPS(60);
             Check(Math.Abs(LuaSTGAPI.GetFPS()) < 1e6, "FPS 可读", $"{LuaSTGAPI.GetFPS()}");
             LuaSTGAPI.SetTitle("LuaSTG CoreCLR SelfTest");
+            RunModuleSmokeTests();
+        }
+
+        /// <summary>各已移植模块的无资产冒烟测试</summary>
+        private void RunModuleSmokeTests()
+        {
+            // Color（纯 C# 值语义）
+            var red = Color.FromArgb(255, 255, 0, 0);
+            Check(red.R == 255 && red.G == 0 && red.B == 0 && red.A == 255, "Color ARGB");
+            var blended = red + Color.FromArgb(255, 0, 100, 0);
+            Check(blended.G == 100, "Color 运算符");
+            var fromHsv = Color.FromAHSV(100, 0, 100, 100);
+            Check(fromHsv.R == 255 && fromHsv.G == 0, "Color HSV 换算", $"{fromHsv.R},{fromHsv.G},{fromHsv.B}");
+
+            // StopWatch（引擎对象生命周期）
+            using (var watch = new StopWatch())
+            {
+                watch.Resume();
+                Check(watch.GetElapsed() >= 0.0, "StopWatch 计时");
+            }
+            var disposedWatch = new StopWatch();
+            disposedWatch.Dispose();
+            var watchThrew = false;
+            try { _ = disposedWatch.GetElapsed(); }
+            catch (ObjectDisposedException) { watchThrew = true; }
+            Check(watchThrew, "StopWatch 销毁后访问抛异常");
+
+            // 音频（引擎未加载资源时的错误路径）
+            var audioThrew = false;
+            try { Audio.PlaySound("___not_exist___", 1.0f, 0.0f); }
+            catch (ArgumentException) { audioThrew = true; }
+            catch (InvalidOperationException) { audioThrew = true; }
+            Check(audioThrew, "Audio 不存在资源抛异常");
+            Check(Audio.GetSEVolume() >= 0f, "Audio 音量可读");
+
+            // 输入
+            _ = Input.GetKeyState(KeyCode.A);
+            Input.Mouse.GetPosition(out var mx, out var my);
+            Check(Math.Abs(mx) < 1e9 && Math.Abs(my) < 1e9, "鼠标位置可读", $"{mx},{my}");
+
+            // 文件系统
+            Check(!FileManager.FileExist("___not_exist___"), "FileExist 不存在文件");
+            Check(FileManager.GetCurrentDirectory().Length > 0, "GetCurrentDirectory");
+
+            // 资源管理
+            Check(ResourceManager.CheckRes(ResourceType.Texture, "___not_exist___") == ResourcePoolType.None,
+                "CheckRes 不存在资源");
+            _ = ResourceManager.ImageScale; // 可读即可
+
+            // 现代图形：渲染目标创建/销毁（无需资产）
+            var rt = RenderTarget.Create(64, 64);
+            Check(rt.Width == 64 && rt.Height == 64, "RenderTarget 创建");
+            rt.Dispose();
+            var rtThrew = false;
+            try { _ = rt.Width; }
+            catch (ObjectDisposedException) { rtThrew = true; }
+            Check(rtThrew, "RenderTarget 销毁后访问抛异常");
+
+            // DirectWrite：文本布局创建/度量（无需资产）
+            var format = DirectWrite.CreateTextFormat("Segoe UI", null,
+                DirectWrite.FontWeight.Normal, DirectWrite.FontStyle.Normal, DirectWrite.FontStretch.Normal, 32.0f, "zh-CN");
+            if (format != null)
+            {
+                using (format)
+                using (var layout = DirectWrite.CreateTextLayout("Hello", format, 100.0f, 100.0f))
+                {
+                    if (layout != null)
+                    {
+                        var metrics = layout.GetMetrics();
+                        Check(metrics.Width > 0, "DirectWrite 文本度量", $"{metrics.Width}");
+                    }
+                    else
+                    {
+                        Check(false, "DirectWrite CreateTextLayout 返回 null");
+                    }
+                }
+            }
+            else
+            {
+                Check(false, "DirectWrite CreateTextFormat 返回 null");
+            }
         }
 
         private sealed class TestBullet : GameObjectBase

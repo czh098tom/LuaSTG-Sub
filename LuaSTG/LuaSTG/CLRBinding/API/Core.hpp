@@ -20,6 +20,10 @@ DECLARE_CLR_API(void, setTargetFPS, (uint32_t fps))
 DECLARE_CLR_API(double, getFPS, ())
 DECLARE_CLR_API(void, setWindowTitle, (const char* title))
 DECLARE_CLR_API(void, setSplash, (uint8_t value))
+DECLARE_CLR_API(void, setPreferenceGPU, (const char* gpu_name))
+// 通过引擎文件系统读取文本文件（对应 lstg.LoadTextFile），packname 可为空指针
+// 返回 UTF-8 文本指针（引擎静态缓冲，下一次调用前有效），失败返回空指针
+DECLARE_CLR_API(const char*, loadTextFile, (const char* path, const char* packname))
 
 // 渲染基础
 DECLARE_CLR_API(uint8_t, beginScene, ())

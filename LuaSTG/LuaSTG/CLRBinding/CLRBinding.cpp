@@ -9,6 +9,7 @@
 #include "AppFrame.h"
 #include "LConfig.h"
 #include "GameObject/GameObjectPool.h"
+#include "core/FileSystem.hpp"
 #include "utf8.hpp"
 
 using namespace luastg;
@@ -172,6 +173,33 @@ namespace luastg
 	void CLRBinding::setSplash(uint8_t const value)
 	{
 		LAPP.SetSplash(value != 0);
+	}
+
+	void CLRBinding::setPreferenceGPU(const char* const gpu_name)
+	{
+		LAPP.SetPreferenceGPU(gpu_name);
+	}
+
+	const char* CLRBinding::loadTextFile(const char* const path, const char* const packname)
+	{
+		// 与 AppFrame::LoadTextFile 相同的读取逻辑，结果暂存到静态缓冲
+		static std::string buffer;
+		core::SmartReference<core::IData> src;
+		bool loaded = false;
+		if (packname != nullptr && packname[0] != '\0') {
+			core::SmartReference<core::IFileSystemArchive> archive;
+			if (core::FileSystemManager::getFileSystemArchiveByPath(packname, archive.put())) {
+				loaded = archive->readFile(path, src.put());
+			}
+		}
+		else {
+			loaded = core::FileSystemManager::readFile(path, src.put());
+		}
+		if (!loaded) {
+			return nullptr;
+		}
+		buffer.assign(static_cast<char const*>(src->data()), src->size());
+		return buffer.c_str();
 	}
 
 	uint8_t CLRBinding::beginScene()

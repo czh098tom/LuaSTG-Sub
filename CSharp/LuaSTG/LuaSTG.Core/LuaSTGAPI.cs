@@ -108,6 +108,33 @@ namespace LuaSTG.Core
         /// <summary>设置是否显示鼠标（对应 lstg.SetSplash）</summary>
         public static void SetSplash(bool value) => api.setSplash(value ? (byte)1 : (byte)0);
 
+        /// <summary>设置首选 GPU（下次创建图形设备时生效）</summary>
+        public static void SetPreferenceGPU(string gpuName)
+        {
+            using var n = new MarshaledString(gpuName);
+            api.setPreferenceGPU(n);
+        }
+
+        /// <summary>
+        /// 通过引擎文件系统读取文本文件（对应 lstg.LoadTextFile）。
+        /// 失败抛出 FileNotFoundException。
+        /// </summary>
+        public static string LoadTextFile(string path, string? packName = null)
+        {
+            using var p = new MarshaledString(path);
+            using var pk = new MarshaledString(packName);
+            var result = api.loadTextFile(p, pk);
+            return result != null
+                ? StringMarshal.FromUtf8(result)
+                : throw new FileNotFoundException($"无法加载文件 '{path}'", path);
+        }
+
+        /// <summary>输出系统日志（对应 lstg.SystemLog）</summary>
+        public static void SystemLog(string message) => Log(LogLevel.Info, message);
+
+        /// <summary>打印（对应 lstg.Print，输出到引擎日志）</summary>
+        public static void Print(string message) => Log(LogLevel.Info, message);
+
         /// <summary>通知引擎开始渲染批次（对应 lstg.BeginScene）</summary>
         /// <returns>是否成功</returns>
         public static bool BeginScene() => api.beginScene() != 0;

@@ -37,6 +37,7 @@ namespace luastg
 	void AppFrame::ShutdownCLR() noexcept
 	{
 		m_CLR_active = false;
+		DeactivateCLRBinding(); // 此后托管侧调用的引擎 API 均为空操作
 		delete m_CLR_functions;
 		m_CLR_functions = nullptr;
 		delete m_CLR_host;

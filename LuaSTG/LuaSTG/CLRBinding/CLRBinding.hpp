@@ -127,6 +127,9 @@ namespace luastg
 	/// @brief 当前激活的托管侧回调，未初始化时为 nullptr
 	[[nodiscard]] ManagedAPI const* GetCLRManagedAPI() noexcept;
 
+	/// @brief 停用 CoreCLR 绑定（引擎关闭时调用，此后引擎 API 均为空操作）
+	void DeactivateCLRBinding() noexcept;
+
 	/// @brief 初始化 CoreCLR 绑定
 	/// @param managed_dir 托管程序集目录（UTF-16，如 L".\\Managed"）
 	/// @param out_managed 输出托管侧回调函数集

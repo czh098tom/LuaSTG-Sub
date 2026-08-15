@@ -71,21 +71,8 @@ namespace LuaSTG.Core
             IdToObject[native->Id] = this;
         }
 
-        ~GameObjectBase()
-        {
-            // 引擎对象不随 GC 回收：若仍存活则标记删除，与引擎生命周期保持一致
-            if (_native != null)
-            {
-                try
-                {
-                    LuaSTGAPI.api.gameObject_queueToFree((nuint)_native, 0);
-                }
-                catch
-                {
-                    // 引擎可能已关闭
-                }
-            }
-        }
+        // 注意：不实现终结器。引擎对象的生命周期由引擎对象池管理，
+        // 未 Delete 的对象随引擎关闭统一回收；终结器中回调引擎可能发生在引擎关闭之后。
 
         // ========== 生命周期 ==========
 

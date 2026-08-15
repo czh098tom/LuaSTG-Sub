@@ -108,6 +108,17 @@ namespace LuaSTG.Core
         /// <summary>设置是否显示鼠标（对应 lstg.SetSplash）</summary>
         public static void SetSplash(bool value) => api.setSplash(value ? (byte)1 : (byte)0);
 
+        /// <summary>通知引擎开始渲染批次（对应 lstg.BeginScene）</summary>
+        /// <returns>是否成功</returns>
+        public static bool BeginScene() => api.beginScene() != 0;
+
+        /// <summary>通知引擎结束渲染批次（对应 lstg.EndScene）</summary>
+        /// <returns>是否成功</returns>
+        public static bool EndScene() => api.endScene() != 0;
+
+        /// <summary>清屏（对应 lstg.RenderClear），参数为 ARGB 分量</summary>
+        public static void RenderClear(byte a, byte r, byte g, byte b) => api.renderClear(a, r, g, b);
+
         private static void LoadAppAssembly()
         {
             var currAssembly = typeof(LuaSTGAPI).Assembly;

@@ -211,3 +211,35 @@ cmake --build %cd%\build\amd64-ninja-debug --target LuaSTG
 4. 执行命令 `cmake --workflow --preset windows-amd64-my-steam-api-release` 执行 CMake 工作流  
 
 如果样板文件无法满足你的需求，可以自行修改。  
+
+## C# (CoreCLR) 支持
+
+引擎通过 hostfxr 模式内嵌 .NET CoreCLR 运行时，C# 侧 API 工程位于 `CSharp/LuaSTG/`。
+
+### 环境要求
+
+* .NET SDK 8.0 或更高（需要 `Microsoft.NETCore.App.Host.win-x64` 运行时主机包，随 SDK 安装）
+
+### 构建步骤
+
+1. CMake 侧：选项 `LUASTG_ENABLE_CORECLR`（默认 `ON`）控制是否启用 C# 绑定；CMake 会自动在已安装的 .NET 中查找 `nethost`，也可通过 `LUASTG_NETHOST_DIR` 手动指定
+2. C# 侧：`dotnet build CSharp/LuaSTG/LuaSTG.sln`，输出到 `build/amd64/bin/Managed/`（与引擎可执行文件同级的 `Managed` 目录）
+3. 引擎启动时自动加载 `Managed/LuaSTG.runtimeconfig.json` 与 `LuaSTG.Core.dll`；加载失败时回退纯 Lua 模式（不影响原有行为）
+
+### 绑定 API 开发
+
+CoreCLR 绑定采用 X-macro 单一事实源 + 代码生成，详见 `tool/clr-api-generator/README.md`。
+
+修改 `LuaSTG/LuaSTG/CLRBinding/API/` 下的 API 定义后：
+
+```shell
+bash tool/clr-api-generator/regen_and_build.sh   # 重新生成 C# 声明并构建
+```
+
+### 自动化自测
+
+引擎构建完成后可运行 C# 绑定自测（结果写入 `clr_selftest_result.txt`）：
+
+```shell
+bash tool/clr-api-generator/run_selftest.sh
+```

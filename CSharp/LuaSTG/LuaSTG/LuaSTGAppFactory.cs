@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using LuaSTG.Core;
 
@@ -12,6 +9,12 @@ namespace LuaSTG
     {
         public ILuaSTGApp? GetApplication()
         {
+            // 命令行带 --clr-selftest 时运行自测应用（用于 CoreCLR 绑定自动化验证）
+            var args = Environment.GetCommandLineArgs();
+            if (args.Contains("--clr-selftest"))
+            {
+                return new ClrSelfTestApp();
+            }
             return new LuaSTGApp();
         }
     }

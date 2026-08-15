@@ -295,6 +295,9 @@ namespace luastg {
 
 		GameObjectPool& GetGameObjectPool()noexcept { return *m_GameObjectPool; }
 
+	/// @brief 对象池尚未创建或已销毁时返回 nullptr（CoreCLR 绑定安全检查用）
+	GameObjectPool* GetGameObjectPoolIfExists()noexcept { return m_GameObjectPool.get(); }
+
 		Platform::DirectInput* GetDInput()noexcept { return m_DirectInput.get(); }
 
 		const FrameStatistics& getFrameStatistics() { return m_frame_statistics[m_frame_statistics_index]; }

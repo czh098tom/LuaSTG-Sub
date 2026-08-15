@@ -10,6 +10,12 @@ namespace
 
 	constexpr auto reason_out_of_world_bound{ "luastg:leave_world_border"sv };
 
+	/// @brief 获取对象池，引擎关闭后为 nullptr
+	[[nodiscard]] GameObjectPool* getPool() noexcept
+	{
+		return LAPP.GetGameObjectPoolIfExists();
+	}
+
 	/// @brief C# 侧创建的游戏对象的回调转发
 	struct CLRGameObjectCallbacks : IGameObjectCallbacks
 	{
@@ -87,7 +93,11 @@ namespace luastg
 // 引擎 API 实现
 uintptr_t luastg::CLRBinding::gameObject_new(uint32_t const callback_mask)
 {
-	auto const object = LPOOL.allocateWithCallbacks(&CLRGameObjectCallbacks::getInstance());
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return 0;
+	}
+	auto const object = pool->allocateWithCallbacks(&CLRGameObjectCallbacks::getInstance());
 	if (object == nullptr) {
 		return 0;
 	}
@@ -106,7 +116,11 @@ uintptr_t luastg::CLRBinding::gameObject_new(uint32_t const callback_mask)
 
 uint8_t luastg::CLRBinding::gameObject_queueToFree(uintptr_t const object, uint8_t const kill_mode)
 {
-	return LPOOL.queueToFree(reinterpret_cast<GameObject*>(object), kill_mode != 0) ? 1 : 0;
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return 0;
+	}
+	return pool->queueToFree(reinterpret_cast<GameObject*>(object), kill_mode != 0) ? 1 : 0;
 }
 
 void luastg::CLRBinding::gameObject_defaultRender(uintptr_t const object)
@@ -126,21 +140,30 @@ uint8_t luastg::CLRBinding::gameObject_changeResource(uintptr_t const object, co
 
 void luastg::CLRBinding::gameObject_dirtReset(uintptr_t const object)
 {
-	LPOOL.DirtResetObject(reinterpret_cast<GameObject*>(object));
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return;
+	}
+	pool->DirtResetObject(reinterpret_cast<GameObject*>(object));
 }
 
 uintptr_t luastg::CLRBinding::gameObject_getById(int32_t const id)
 {
-	if (id < 0 || static_cast<uint32_t>(id) >= LOBJPOOL_SIZE) {
+	auto* const pool = getPool();
+	if (pool == nullptr || id < 0 || static_cast<uint32_t>(id) >= LOBJPOOL_SIZE) {
 		return 0;
 	}
-	return reinterpret_cast<uintptr_t>(LPOOL.GetPooledObject(static_cast<size_t>(id)));
+	return reinterpret_cast<uintptr_t>(pool->GetPooledObject(static_cast<size_t>(id)));
 }
 
 uint8_t luastg::CLRBinding::gameObject_setGroup(uintptr_t const object, int64_t const group)
 {
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return 0;
+	}
 	auto const p = reinterpret_cast<GameObject*>(object);
-	if (LPOOL.isLockedByDetectIntersection(p)) {
+	if (pool->isLockedByDetectIntersection(p)) {
 		return 0; // 碰撞检测中不允许修改
 	}
 	if (group < 0 || group >= LOBJPOOL_GROUPN) {
@@ -154,8 +177,12 @@ uint8_t luastg::CLRBinding::gameObject_setGroup(uintptr_t const object, int64_t 
 
 uint8_t luastg::CLRBinding::gameObject_setLayer(uintptr_t const object, double const layer)
 {
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return 0;
+	}
 	auto const p = reinterpret_cast<GameObject*>(object);
-	if (LPOOL.isRendering()) {
+	if (pool->isRendering()) {
 		return 0; // 渲染中不允许修改
 	}
 	if (p->layer != layer) {
@@ -219,23 +246,52 @@ const char* luastg::CLRBinding::gameObject_getResourceName(uintptr_t const objec
 	return name.data();
 }
 
-void luastg::CLRBinding::pool_updateMovementsLegacy() { LPOOL.updateMovementsLegacy(); }
-void luastg::CLRBinding::pool_updateMovements() { LPOOL.updateMovements(); }
-void luastg::CLRBinding::pool_updateNextLegacy() { LPOOL.updateNextLegacy(); }
-void luastg::CLRBinding::pool_updateNext() { LPOOL.updateNext(); }
-void luastg::CLRBinding::pool_render() { LPOOL.render(); }
-void luastg::CLRBinding::pool_detectOutOfWorldBoundLegacy() { LPOOL.detectOutOfWorldBoundLegacy(); }
-void luastg::CLRBinding::pool_detectOutOfWorldBound() { LPOOL.detectOutOfWorldBound(); }
+void luastg::CLRBinding::pool_updateMovementsLegacy()
+{
+	if (auto* const pool = getPool()) pool->updateMovementsLegacy();
+}
+void luastg::CLRBinding::pool_updateMovements()
+{
+	if (auto* const pool = getPool()) pool->updateMovements();
+}
+void luastg::CLRBinding::pool_updateNextLegacy()
+{
+	if (auto* const pool = getPool()) pool->updateNextLegacy();
+}
+void luastg::CLRBinding::pool_updateNext()
+{
+	if (auto* const pool = getPool()) pool->updateNext();
+}
+void luastg::CLRBinding::pool_render()
+{
+	if (auto* const pool = getPool()) pool->render();
+}
+void luastg::CLRBinding::pool_detectOutOfWorldBoundLegacy()
+{
+	if (auto* const pool = getPool()) pool->detectOutOfWorldBoundLegacy();
+}
+void luastg::CLRBinding::pool_detectOutOfWorldBound()
+{
+	if (auto* const pool = getPool()) pool->detectOutOfWorldBound();
+}
 
 void luastg::CLRBinding::pool_detectIntersectionLegacy(uint32_t const group1, uint32_t const group2)
 {
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return;
+	}
 	if (group1 < LOBJPOOL_GROUPN && group2 < LOBJPOOL_GROUPN) {
-		LPOOL.detectIntersectionLegacy(group1, group2);
+		pool->detectIntersectionLegacy(group1, group2);
 	}
 }
 
 void luastg::CLRBinding::pool_detectIntersection(const uint32_t* const group_pairs, uint32_t const count)
 {
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return;
+	}
 	std::pmr::vector<GameObjectPool::IntersectionDetectionGroupPair> pairs;
 	pairs.reserve(count);
 	for (uint32_t i = 0; i < count; i += 1) {
@@ -245,56 +301,96 @@ void luastg::CLRBinding::pool_detectIntersection(const uint32_t* const group_pai
 			pairs.emplace_back(group1, group2);
 		}
 	}
-	LPOOL.detectIntersection(pairs);
+	pool->detectIntersection(pairs);
 }
 
-void luastg::CLRBinding::pool_updateXY() { LPOOL.UpdateXY(); }
-void luastg::CLRBinding::pool_resetPool() { LPOOL.ResetPool(); }
+void luastg::CLRBinding::pool_updateXY()
+{
+	if (auto* const pool = getPool()) pool->UpdateXY();
+}
+void luastg::CLRBinding::pool_resetPool()
+{
+	if (auto* const pool = getPool()) pool->ResetPool();
+}
 
 void luastg::CLRBinding::pool_setBound(double const l, double const r, double const b, double const t)
 {
-	LPOOL.SetBound(l, r, b, t);
+	if (auto* const pool = getPool()) pool->SetBound(l, r, b, t);
 }
 
 uint8_t luastg::CLRBinding::pool_isPointInBound(double const x, double const y)
 {
-	return LPOOL.isPointInBound(x, y) ? 1 : 0;
+	auto* const pool = getPool();
+	return pool != nullptr && pool->isPointInBound(x, y) ? 1 : 0;
 }
 
-uint32_t luastg::CLRBinding::pool_getCapacity() { return LOBJPOOL_SIZE; }
-uint32_t luastg::CLRBinding::pool_getObjectCount() { return static_cast<uint32_t>(LPOOL.GetObjectCount()); }
+uint32_t luastg::CLRBinding::pool_getCapacity()
+{
+	return LOBJPOOL_SIZE;
+}
+
+uint32_t luastg::CLRBinding::pool_getObjectCount()
+{
+	auto* const pool = getPool();
+	return pool != nullptr ? static_cast<uint32_t>(pool->GetObjectCount()) : 0u;
+}
 
 int32_t luastg::CLRBinding::pool_updateListFirst()
 {
-	auto const object = LPOOL.getUpdateListFirst();
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return -1;
+	}
+	auto const object = pool->getUpdateListFirst();
 	return object ? static_cast<int32_t>(object->id) : -1;
 }
 
 int32_t luastg::CLRBinding::pool_updateListNext(int32_t const id)
 {
-	auto const object = LPOOL.getUpdateListNext(static_cast<size_t>(id));
+	auto* const pool = getPool();
+	if (pool == nullptr) {
+		return -1;
+	}
+	auto const object = pool->getUpdateListNext(static_cast<size_t>(id));
 	return object ? static_cast<int32_t>(object->id) : -1;
 }
 
 int32_t luastg::CLRBinding::pool_detectListFirst(int32_t const group)
 {
-	if (group < 0 || group >= LOBJPOOL_GROUPN) {
+	auto* const pool = getPool();
+	if (pool == nullptr || group < 0 || group >= LOBJPOOL_GROUPN) {
 		return -1;
 	}
-	auto const object = LPOOL.getDetectListFirst(static_cast<size_t>(group));
+	auto const object = pool->getDetectListFirst(static_cast<size_t>(group));
 	return object ? static_cast<int32_t>(object->id) : -1;
 }
 
 int32_t luastg::CLRBinding::pool_detectListNext(int32_t const group, int32_t const id)
 {
-	if (group < 0 || group >= LOBJPOOL_GROUPN) {
+	auto* const pool = getPool();
+	if (pool == nullptr || group < 0 || group >= LOBJPOOL_GROUPN) {
 		return -1;
 	}
-	auto const object = LPOOL.getDetectListNext(static_cast<size_t>(group), static_cast<size_t>(id));
+	auto const object = pool->getDetectListNext(static_cast<size_t>(group), static_cast<size_t>(id));
 	return object ? static_cast<int32_t>(object->id) : -1;
 }
 
-int64_t luastg::CLRBinding::pool_getSuperPauseTime() { return LPOOL.GetSuperPauseTime(); }
-int64_t luastg::CLRBinding::pool_getNextFrameSuperPauseTime() { return LPOOL.GetNextFrameSuperPauseTime(); }
-void luastg::CLRBinding::pool_setNextFrameSuperPauseTime(int64_t const time) { LPOOL.SetNextFrameSuperPauseTime(time); }
-int64_t luastg::CLRBinding::pool_updateSuperPause() { return LPOOL.UpdateSuperPause(); }
+int64_t luastg::CLRBinding::pool_getSuperPauseTime()
+{
+	auto* const pool = getPool();
+	return pool != nullptr ? pool->GetSuperPauseTime() : 0;
+}
+int64_t luastg::CLRBinding::pool_getNextFrameSuperPauseTime()
+{
+	auto* const pool = getPool();
+	return pool != nullptr ? pool->GetNextFrameSuperPauseTime() : 0;
+}
+void luastg::CLRBinding::pool_setNextFrameSuperPauseTime(int64_t const time)
+{
+	if (auto* const pool = getPool()) pool->SetNextFrameSuperPauseTime(time);
+}
+int64_t luastg::CLRBinding::pool_updateSuperPause()
+{
+	auto* const pool = getPool();
+	return pool != nullptr ? pool->UpdateSuperPause() : 0;
+}

@@ -109,6 +109,11 @@ namespace luastg
 		return &g_clr_managed;
 	}
 
+	void DeactivateCLRBinding() noexcept
+	{
+		g_clr_managed = {};
+	}
+
 	void CLRBinding::log(int32_t const level, const char* const text)
 	{
 		spdlog::log(static_cast<spdlog::level::level_enum>(level), "[CSharp] {}", std::string_view(text));

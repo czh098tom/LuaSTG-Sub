@@ -13,3 +13,5 @@
 #include "CLRBinding/API/ModernGraphics.hpp"
 #include "CLRBinding/API/ModernWindow.hpp"
 #include "CLRBinding/API/External.hpp"
+#include "CLRBinding/API/Http.hpp"
+#include "CLRBinding/API/DirectWrite.hpp"

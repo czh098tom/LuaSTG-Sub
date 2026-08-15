@@ -50,6 +50,9 @@ TYPE_MAP = {
     "int32_t*": "int*",
     "const uint8_t*": "byte*",
     "uint8_t*": "byte*",
+    "const float*": "float*",     # 指向调用方持有的浮点数组
+    "float*": "float*",
+    "const char**": "byte**",     # 指向调用方持有的 UTF-8 字符串指针数组（配合 count 使用）
 }
 
 API_RE = re.compile(

@@ -191,8 +191,8 @@ namespace LuaSTG.Core
 
         // ========== 全局图像缩放（引擎 GLOBAL_SCALE_COLLI_SHAPE 相关） ==========
 
-        /// <summary>全局图像缩放系数（1.0，资源管理模块移植后从引擎读取）</summary>
-        internal static double GlobalImageScale => ResourceManager.GlobalImageScale;
+        /// <summary>全局图像缩放系数（每次访问从引擎读取，对应 lstg.SetImageScale 设置的值）</summary>
+        internal static double GlobalImageScale => ResourceManager.ImageScale;
 
         // ========== 数学辅助（对应 Lua 侧 embedded GameObject.lua 的辅助函数） ==========
 

@@ -69,10 +69,23 @@ namespace luastg
 		int SampleL(lua_State* L, float length) noexcept;
 		int SampleT(lua_State* L, float delay)  noexcept;
 
-		// Lua API
+	// Lua API
 
-		int api_UpdateSingleNode(lua_State* L);
-		int api_UpdateAllNodeByList(lua_State* L);
+	int api_UpdateSingleNode(lua_State* L);
+	int api_UpdateAllNodeByList(lua_State* L);
+
+	// CoreCLR 绑定 API（与上方 Lua 接口语义一致，不经过 lua_State）
+
+	/// 直接修改单个节点并更新相邻节点（索引从 0 开始），索引越界返回 false
+	bool UpdateNodeDirect(size_t index, float x, float y, float width) noexcept;
+	/// 按坐标列表更新节点，positions 为 length 组 (x,y)
+	bool UpdatePositionByList(const double* positions, int length, float width, int index, bool revert) noexcept;
+	/// 按列表更新全部节点；widths 为空时使用固定 width，节点数超过容量返回 false
+	bool UpdateAllNodeByList(int node_count, const float* xs, const float* ys, const float* widths, float width) noexcept;
+	/// 按长度采样，采样点 (x, y, rot) 最多写入 capacity 组，返回总采样数；length <= 0 时返回 0
+	int SampleByLength(float length, float* out_x, float* out_y, float* out_rot, int capacity) noexcept;
+	/// 按时间采样（delay 为帧间隔），采样点 (x, y, rot) 最多写入 capacity 组，返回总采样数；delay <= 0 时返回 0
+	int SampleByTime(float delay, float* out_x, float* out_y, float* out_rot, int capacity) noexcept;
 
 	protected:
 		GameObjectBentLaser() noexcept;

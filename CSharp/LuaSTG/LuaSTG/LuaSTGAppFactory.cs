@@ -13,7 +13,7 @@ namespace LuaSTG
             var args = Environment.GetCommandLineArgs();
             if (args.Contains("--clr-selftest"))
             {
-                return new ClrSelfTestApp();
+                return new ClrSelfTestApp(Array.Exists(args, static a => a == "--lua-sync"));
             }
             return new LuaSTGApp();
         }

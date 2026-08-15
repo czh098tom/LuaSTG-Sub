@@ -8,13 +8,20 @@ namespace LuaSTG
     /// <summary>
     /// CoreCLR 绑定自测应用。通过命令行 --clr-selftest 启用。
     /// 结果写入 clr_selftest_result.txt，FrameFunc 返回 true 请求退出。
+    /// 附加 --lua-sync 时与 Lua 测试脚本（tool/clr-selftest-lua/main.lua）做双向数据同步验证。
     /// </summary>
     public sealed class ClrSelfTestApp : ILuaSTGApp
     {
         private readonly StringBuilder _results = new();
+        private readonly bool _luaSync;
         private int _failures;
         private int _frame;
         private int _stage;
+
+        public ClrSelfTestApp(bool luaSync = false)
+        {
+            _luaSync = luaSync;
+        }
 
         private void Check(bool condition, string name, string detail = "")
         {
@@ -39,6 +46,11 @@ namespace LuaSTG
         {
             try
             {
+                if (_luaSync)
+                {
+                    _stage = 10; // Lua 同步模式：等待 Lua 创建对象
+                    return;
+                }
                 RunInitTests();
                 RunGameObjectTests();
             }
@@ -126,6 +138,57 @@ namespace LuaSTG
 
         private TestBullet? _mover;
 
+        private void RunLuaSyncTests()
+        {
+            // Lua 在 GameInit 创建了 3 个对象：x=i*10, y=40+i, group=2, vx=0.5*i
+            var count = 0;
+            var matched = 0;
+            foreach (var o in GameObjectManager.ObjList())
+            {
+                count++;
+                for (var i = 1; i <= 3; i++)
+                {
+                    if (Math.Abs(o.X - i * 10.0) < 1e-6 && Math.Abs(o.Y - (40.0 + i)) < 1e-6
+                        && o.Group == 2 && Math.Abs(o.Vx - 0.5 * i) < 1e-6)
+                    {
+                        matched++;
+                        break;
+                    }
+                }
+            }
+            Check(count >= 3, "ObjList 看到 Lua 创建的对象", $"{count}");
+            Check(matched == 3, "Lua 写入的引擎数据在 C# 侧可读且同步", $"{matched}/3");
+
+            // C# 创建对象并写引擎数据，供 Lua 侧校验（Lua 在 frame 12 检查）
+            var cs = new TestBullet();
+            cs.X = 777.0;
+            cs.Y = 888.0;
+            Check(cs.IsValid, "C# 在 Lua 侧对象池中创建对象");
+        }
+
+        private void CheckLuaResult()
+        {
+            try
+            {
+                if (File.Exists("lua_sync_result.txt"))
+                {
+                    var text = File.ReadAllText("lua_sync_result.txt");
+                    Check(text.StartsWith("PASS"), "Lua 侧校验 C# 对象数据同步", text.Trim());
+                    Finish();
+                    _stage = -1;
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                Check(false, "读取 lua_sync_result 异常", e.ToString());
+                Finish();
+                _stage = -1;
+                return;
+            }
+            // Lua 结果文件尚未产生，继续等待
+        }
+
         public bool FrameFunc()
         {
             if (_stage == -1)
@@ -135,6 +198,26 @@ namespace LuaSTG
             _frame++;
             try
             {
+                if (_stage == 10)
+                {
+                    // Lua 同步模式
+                    if (_frame == 10)
+                    {
+                        RunLuaSyncTests();
+                    }
+                    if (_frame is 14 or 20 or 30)
+                    {
+                        CheckLuaResult();
+                    }
+                    if (_frame > 60)
+                    {
+                        Check(false, "Lua 同步超时（lua_sync_result.txt 未产生）");
+                        Finish();
+                        _stage = -1;
+                    }
+                    return false;
+                }
+
                 switch (_stage)
                 {
                     case 1: // 验证回调分发与引擎运动更新
@@ -189,7 +272,7 @@ namespace LuaSTG
         public void RenderFunc()
         {
             // 渲染回调能正常调用基础渲染 API
-            if (_frame == 4 && LuaSTGAPI.BeginScene())
+            if (!_luaSync && _frame == 4 && LuaSTGAPI.BeginScene())
             {
                 LuaSTGAPI.RenderClear(255, 32, 64, 128);
                 LuaSTGAPI.EndScene();

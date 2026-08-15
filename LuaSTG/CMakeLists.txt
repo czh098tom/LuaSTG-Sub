@@ -217,18 +217,17 @@ set(LUASTG_ENGINE_SOURCES
     LuaSTG/ApplicationRestart.cpp
     LuaSTG/WindowsMain.cpp
 
-    LuaSTG/CLRBinding/CLRHost.cpp
-    LuaSTG/CLRBinding/CLRHost.hpp
-    LuaSTG/CLRBinding/CLRBinding.cpp
-    LuaSTG/CLRBinding/CLRBinding.hpp
-    LuaSTG/CLRBinding/CLRGameObject.cpp
-    LuaSTG/CLRBinding/CLRAppFrame.cpp
-    LuaSTG/CLRBinding/API/APIList.hpp
-    LuaSTG/CLRBinding/API/Core.hpp
-    LuaSTG/CLRBinding/API/GameObject.hpp
-
     LuaSTG/LuaSTG.manifest
 )
+
+# CoreCLR 绑定源文件使用 GLOB，便于按模块扩展（新增模块无需重新配置）
+file(GLOB LUASTG_CLR_BINDING_SOURCES CONFIGURE_DEPENDS
+    LuaSTG/CLRBinding/*.cpp
+    LuaSTG/CLRBinding/*.hpp
+    LuaSTG/CLRBinding/API/*.hpp
+)
+list(APPEND LUASTG_ENGINE_SOURCES ${LUASTG_CLR_BINDING_SOURCES})
+
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} FILES ${LUASTG_ENGINE_SOURCES})
 target_sources(LuaSTG PRIVATE
     ${LUASTG_ENGINE_SOURCES}

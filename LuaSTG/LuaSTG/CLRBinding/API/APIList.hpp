@@ -4,3 +4,12 @@
 
 #include "CLRBinding/API/Core.hpp"
 #include "CLRBinding/API/GameObject.hpp"
+#include "CLRBinding/API/Render.hpp"
+#include "CLRBinding/API/Audio.hpp"
+#include "CLRBinding/API/Input.hpp"
+#include "CLRBinding/API/Resource.hpp"
+#include "CLRBinding/API/PlatformFile.hpp"
+#include "CLRBinding/API/MiscObject.hpp"
+#include "CLRBinding/API/ModernGraphics.hpp"
+#include "CLRBinding/API/ModernWindow.hpp"
+#include "CLRBinding/API/External.hpp"

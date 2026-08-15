@@ -259,3 +259,7 @@ DECLARE_CLR_API(void, mg_spriteQuadRendererSetLegacyBlendState, (uintptr_t handl
 DECLARE_CLR_API(void, mg_spriteQuadRendererDraw, (uintptr_t handle))
 // 释放句柄
 DECLARE_CLR_API(void, mg_spriteQuadRendererRelease, (uintptr_t handle))
+
+// 推送现代图形对象形式的渲染目标到渲染目标栈（对应 lstg.PushRenderTarget 的对象重载）
+// ds_handle 为 0 表示不使用深度模板缓冲；返回 0 成功 1 非渲染作用域 2 句柄无效 3 尺寸不匹配 4 推送失败
+DECLARE_CLR_API(uint8_t, mg_renderTargetPushToStack, (uintptr_t rt_handle, uintptr_t ds_handle))

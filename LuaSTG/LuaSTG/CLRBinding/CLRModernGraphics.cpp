@@ -12,6 +12,7 @@
 
 #include "AppFrame.h"
 #include "GameResource/LegacyBlendStateHelper.hpp"
+#include "GameResource/Implement/ResourceTextureImpl.hpp"
 #include "core/Graphics/Mesh.hpp"
 #include "core/Matrix4x4.hpp"
 #include "core/VideoDecoder.hpp"
@@ -1029,5 +1030,30 @@ namespace luastg
 	void CLRBinding::mg_spriteQuadRendererRelease(uintptr_t const handle)
 	{
 		delete asHandle<RefHandle<core::Graphics::ISpriteRenderer>>(handle);
+	}
+	uint8_t CLRBinding::mg_renderTargetPushToStack(uintptr_t const rt_handle, uintptr_t const ds_handle)
+	{
+		auto* ctx = LR2D();
+		if (!ctx->isBatchScope())
+			return 1;
+		auto* const rt = asHandle<RenderTargetHandle_t>(rt_handle);
+		if (rt_handle == 0 || rt == nullptr || !rt->data)
+			return 2;
+		DepthStencilBufferHandle_t* ds = nullptr;
+		if (ds_handle != 0) {
+			ds = asHandle<DepthStencilBufferHandle_t>(ds_handle);
+			if (ds == nullptr || !ds->data)
+				return 2;
+			if (rt->data->getTexture()->getSize() != ds->data->getSize())
+				return 3;
+		}
+		ctx->flush();
+		core::SmartReference<IResourceTexture> texture;
+		texture.attach(new luastg::RenderTargetStackResourceTextureImpl(rt->data.get(), ds ? ds->data.get() : nullptr));
+		if (!LAPP.GetRenderTargetManager()->PushRenderTarget(texture.get())) {
+			return 4;
+		}
+		ctx->setViewportAndScissorRect();
+		return 0;
 	}
 }

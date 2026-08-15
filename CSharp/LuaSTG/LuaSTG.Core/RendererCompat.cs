@@ -181,6 +181,31 @@ namespace LuaSTG.Core
             }
         }
 
+        /// <summary>
+        /// 压入现代图形对象形式的渲染目标（对应 lstg.PushRenderTarget 的对象重载）。
+        /// 可选配深度模板缓冲（尺寸必须一致）。
+        /// </summary>
+        public static void PushRenderTarget(RenderTarget renderTarget, DepthStencilBuffer? depthStencilBuffer = null)
+        {
+            if (renderTarget is null) throw new ArgumentNullException(nameof(renderTarget));
+            renderTarget.ThrowIfDisposed();
+            depthStencilBuffer?.ThrowIfDisposed();
+            var ds = depthStencilBuffer is null ? 0u : (nuint)depthStencilBuffer.Handle;
+            switch (LuaSTGAPI.api.mg_renderTargetPushToStack((nuint)renderTarget.Handle, ds))
+            {
+                case 0:
+                    break;
+                case 2:
+                    throw new ArgumentException("无效的渲染目标句柄");
+                case 3:
+                    throw new ArgumentException("RenderTarget 与 DepthStencilBuffer 尺寸不一致");
+                case 4:
+                    throw new InvalidOperationException("压入渲染目标失败");
+                default:
+                    throw new InvalidOperationException("无效的渲染操作：不在 BeginScene/EndScene 渲染批次内");
+            }
+        }
+
         /// <summary>弹出渲染目标（对应 lstg.PopRenderTarget）</summary>
         /// <exception cref="InvalidOperationException">不在渲染批次内或弹栈失败</exception>
         public static void PopRenderTarget()

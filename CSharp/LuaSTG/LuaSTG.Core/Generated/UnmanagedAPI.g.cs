@@ -422,6 +422,7 @@ namespace LuaSTG.Core
         public delegate* unmanaged[Cdecl]<nuint, byte, void> mg_spriteQuadRendererSetLegacyBlendState;
         public delegate* unmanaged[Cdecl]<nuint, void> mg_spriteQuadRendererDraw;
         public delegate* unmanaged[Cdecl]<nuint, void> mg_spriteQuadRendererRelease;
+        public delegate* unmanaged[Cdecl]<nuint, nuint, byte> mg_renderTargetPushToStack;
         public delegate* unmanaged[Cdecl]<nuint> window_getMain;
         public delegate* unmanaged[Cdecl]<byte*, void> window_setTitle;
         public delegate* unmanaged[Cdecl]<uint*, uint*, void> window_getClientAreaSize;
@@ -489,6 +490,33 @@ namespace LuaSTG.Core
         public delegate* unmanaged[Cdecl]<byte*> video_getCurrentGpuName;
         public delegate* unmanaged[Cdecl]<byte*, byte> video_changeGPU;
         public delegate* unmanaged[Cdecl]<int, void> video_setSwapChainScalingMode;
+        public delegate* unmanaged[Cdecl]<int, byte> xinput_isConnected;
+        public delegate* unmanaged[Cdecl]<int> xinput_refresh;
+        public delegate* unmanaged[Cdecl]<void> xinput_update;
+        public delegate* unmanaged[Cdecl]<int, int, byte> xinput_getKeyState;
+        public delegate* unmanaged[Cdecl]<int, byte> xinput_getKeyStateAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getLeftTrigger;
+        public delegate* unmanaged[Cdecl]<float> xinput_getLeftTriggerAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getRightTrigger;
+        public delegate* unmanaged[Cdecl]<float> xinput_getRightTriggerAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getLeftThumbX;
+        public delegate* unmanaged[Cdecl]<float> xinput_getLeftThumbXAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getLeftThumbY;
+        public delegate* unmanaged[Cdecl]<float> xinput_getLeftThumbYAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getRightThumbX;
+        public delegate* unmanaged[Cdecl]<float> xinput_getRightThumbXAny;
+        public delegate* unmanaged[Cdecl]<int, float> xinput_getRightThumbY;
+        public delegate* unmanaged[Cdecl]<float> xinput_getRightThumbYAny;
+        public delegate* unmanaged[Cdecl]<uint> dinput_count;
+        public delegate* unmanaged[Cdecl]<uint> dinput_refresh;
+        public delegate* unmanaged[Cdecl]<void> dinput_update;
+        public delegate* unmanaged[Cdecl]<void> dinput_reset;
+        public delegate* unmanaged[Cdecl]<uint, int*, byte> dinput_getAxisRange;
+        public delegate* unmanaged[Cdecl]<uint, int*, uint*, byte*, byte> dinput_getRawState;
+        public delegate* unmanaged[Cdecl]<uint, int*, byte> dinput_getState;
+        public delegate* unmanaged[Cdecl]<uint, byte*> dinput_getDeviceName;
+        public delegate* unmanaged[Cdecl]<uint, byte*> dinput_getProductName;
+        public delegate* unmanaged[Cdecl]<uint, byte> dinput_isXInputDevice;
         public delegate* unmanaged[Cdecl]<int, byte*, byte*, nuint> http_request_create;
         public delegate* unmanaged[Cdecl]<nuint, void> http_request_destroy;
         public delegate* unmanaged[Cdecl]<byte*> http_getLastError;
@@ -547,6 +575,6 @@ namespace LuaSTG.Core
         public delegate* unmanaged[Cdecl]<nuint, byte*, nuint, float, float, byte> dwrite_textRendererRender;
 
         /// <summary>C# 侧编译期已知的 API 数量</summary>
-        public const int ExpectedApiCount = 526;
+        public const int ExpectedApiCount = 554;
     }
 }

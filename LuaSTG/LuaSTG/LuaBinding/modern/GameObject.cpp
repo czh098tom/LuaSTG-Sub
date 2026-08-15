@@ -9,6 +9,13 @@
 using std::string_view_literals::operator ""sv;
 
 namespace {
+	/// @brief 获取当前活跃的 Lua 虚拟机
+	/// @note C# (CoreCLR) 侧驱动对象管线时 lua_vm 栈可能为空，回退到主虚拟机；
+	///       纯 Lua 流程中该栈不会为空，行为不变
+	[[nodiscard]] lua_State* getActiveLuaVM(std::vector<lua_State*>& stack) {
+		return stack.empty() ? LAPP.GetLuaEngine() : stack.back();
+	}
+
 	std::byte game_object_meta_table_key{};
 	std::byte game_object_tables_key{};
 
@@ -102,20 +109,34 @@ namespace {
 			spdlog::debug("[object] free {}-{} (img = {})", object->id, object->unique_id, object->res ? object->res->GetResName() : null_name);
 		#endif
 
-			auto const vm = getInstance().lua_vm.back();
+			auto const vm = getActiveLuaVM(getInstance().lua_vm);
 			lua::stack_t const ctx(vm);
 
-			auto const table = getInstance().game_object_tables_index.back();
-			auto const lua_index = static_cast<int32_t>(object->id + 1);
+			auto const cleanup = [&](lua::stack_index_t const table) {
+				auto const lua_index = static_cast<int32_t>(object->id + 1);
+				auto const object_table = ctx.get_array_value<lua::stack_index_t>(table, lua_index); // ... t ... object
+				if (lua_type(vm, object_table.value) != LUA_TTABLE) {
+					// C# (CoreCLR) 侧创建的对象没有 Lua 表项，仅清空槽位后跳过 Lua 侧簿记
+					ctx.pop_value();
+					ctx.set_array_value(table, lua_index, std::nullopt);
+					return;
+				}
+				ctx.set_array_value(object_table, 3, std::nullopt); // object[3] = nil
+			#ifdef LUASTG_GAME_OBJECT_PARTICLE_SYSTEM_OBJECT
+				releaseParticlePoolBinding(object, vm, object_table.value); // releaseParticlePoolBinding(object[4]); object[4] = nil
+			#endif // LUASTG_GAME_OBJECT_PARTICLE_SYSTEM_OBJECT
+				ctx.pop_value(); // ... t ...
+				ctx.set_array_value(table, lua_index, std::nullopt); // table[lua_index] = nil
+			};
 
-			auto const object_table = ctx.get_array_value<lua::stack_index_t>(table, lua_index); // ... t ... object
-			ctx.set_array_value(object_table, 3, std::nullopt); // object[3] = nil
-		#ifdef LUASTG_GAME_OBJECT_PARTICLE_SYSTEM_OBJECT
-			releaseParticlePoolBinding(object, vm, object_table.value); // releaseParticlePoolBinding(object[4]); object[4] = nil
-		#endif // LUASTG_GAME_OBJECT_PARTICLE_SYSTEM_OBJECT
-			ctx.pop_value(); // ... t ...
-
-			ctx.set_array_value(table, lua_index, std::nullopt); // table[lua_index] = nil
+			if (getInstance().game_object_tables_index.empty()) {
+				// C# (CoreCLR) 侧驱动的回收：对象表不在栈上，临时压入
+				luastg::binding::GameObject::pushGameObjectTable(vm);
+				cleanup(lua::stack_index_t{ lua_gettop(vm) });
+				ctx.pop_value();
+				return;
+			}
+			cleanup(getInstance().game_object_tables_index.back());
 		}
 		void onBeforeBatchDestroy() override {
 			beforeBatch();
@@ -149,14 +170,19 @@ namespace {
 		}
 
 		void beforeBatch() {
-			auto const vm = lua_vm.back();
-			luastg::binding::GameObject::pushGameObjectTable(vm);
-			game_object_tables_index.emplace_back(lua_gettop(vm));
+			auto const vm = getActiveLuaVM(getInstance().lua_vm);
+			if (!lua_vm.empty()) {
+				// 仅 Lua 驱动的批次需要压入对象表（供 Lua 回调快速访问）
+				luastg::binding::GameObject::pushGameObjectTable(vm);
+				game_object_tables_index.emplace_back(lua_gettop(vm));
+			}
 		}
 		void afterBatch() {
-			auto const vm = lua_vm.back();
-			lua_settop(vm, game_object_tables_index.back().value - 1);
-			game_object_tables_index.pop_back();
+			auto const vm = getActiveLuaVM(getInstance().lua_vm);
+			if (!game_object_tables_index.empty()) {
+				lua_settop(vm, game_object_tables_index.back().value - 1);
+				game_object_tables_index.pop_back();
+			}
 		}
 
 		static GameObjectManagerCallbacks& getInstance() {
@@ -170,10 +196,16 @@ namespace {
 			return "lua"sv;
 		}
 		void onQueueToDestroy(luastg::GameObject* self, std::string_view const reason) override {
-			auto const vm = GameObjectManagerCallbacks::getInstance().lua_vm.back();
+			auto const vm = getActiveLuaVM(GameObjectManagerCallbacks::getInstance().lua_vm);
 			lua::stack_t const ctx(vm);
 
-			auto const table = GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
+			auto const tables_empty = GameObjectManagerCallbacks::getInstance().game_object_tables_index.empty();
+			if (tables_empty) {
+				luastg::binding::GameObject::pushGameObjectTable(vm); // C# 侧驱动：临时压入对象表
+			}
+			auto const table = tables_empty
+				? lua::stack_index_t{ lua_gettop(vm) }
+				: GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
 			auto const lua_index = static_cast<int32_t>(self->id + 1);
 
 			auto const object = ctx.get_array_value<lua::stack_index_t>(table, lua_index); // ... t ... object
@@ -183,6 +215,9 @@ namespace {
 			ctx.push_value(reason); // ... t ... object class callback object reason
 			lua_call(vm, 2, 0); // ... t ... object class
 			ctx.pop_value(2); // ... t ...
+			if (tables_empty) {
+				ctx.pop_value(); // 弹出临时对象表
+			}
 		}
 		void onUpdate(luastg::GameObject* self) override {
 			call(self, LGOBJ_CC_FRAME);
@@ -192,10 +227,16 @@ namespace {
 			call(self, LGOBJ_CC_RENDER);
 		}
 		void onTrigger(luastg::GameObject* self, luastg::GameObject* other) override {
-			auto const vm = GameObjectManagerCallbacks::getInstance().lua_vm.back();
+			auto const vm = getActiveLuaVM(GameObjectManagerCallbacks::getInstance().lua_vm);
 			lua::stack_t const ctx(vm);
 
-			auto const table = GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
+			auto const tables_empty = GameObjectManagerCallbacks::getInstance().game_object_tables_index.empty();
+			if (tables_empty) {
+				luastg::binding::GameObject::pushGameObjectTable(vm); // C# 侧驱动：临时压入对象表
+			}
+			auto const table = tables_empty
+				? lua::stack_index_t{ lua_gettop(vm) }
+				: GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
 			auto const lua_index = static_cast<int32_t>(self->id + 1);
 			auto const other_lua_index = static_cast<int32_t>(other->id + 1);
 
@@ -206,13 +247,22 @@ namespace {
 			std::ignore = ctx.get_array_value<lua::stack_index_t>(table, other_lua_index); // ... t ... object class callback object other
 			lua_call(vm, 2, 0); // ... t ... object class
 			ctx.pop_value(2); // ... t ...
+			if (tables_empty) {
+				ctx.pop_value(); // 弹出临时对象表
+			}
 		}
 
 		static void call(luastg::GameObject const* const self, int const type) {
-			auto const vm = GameObjectManagerCallbacks::getInstance().lua_vm.back();
+			auto const vm = getActiveLuaVM(GameObjectManagerCallbacks::getInstance().lua_vm);
 			lua::stack_t const ctx(vm);
 
-			auto const table = GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
+			auto const tables_empty = GameObjectManagerCallbacks::getInstance().game_object_tables_index.empty();
+			if (tables_empty) {
+				luastg::binding::GameObject::pushGameObjectTable(vm); // C# 侧驱动：临时压入对象表
+			}
+			auto const table = tables_empty
+				? lua::stack_index_t{ lua_gettop(vm) }
+				: GameObjectManagerCallbacks::getInstance().game_object_tables_index.back();
 			auto const lua_index = static_cast<int32_t>(self->id + 1);
 
 			auto const object = ctx.get_array_value<lua::stack_index_t>(table, lua_index); // ... t ... object
@@ -221,6 +271,9 @@ namespace {
 			ctx.push_value(object); // ... t ... object class callback object
 			lua_call(vm, 1, 0); // ... t ... object class
 			ctx.pop_value(2); // ... t ...
+			if (tables_empty) {
+				ctx.pop_value(); // 弹出临时对象表
+			}
 		}
 
 		static GameObjectCallbacks& getInstance() {
@@ -232,6 +285,55 @@ namespace {
 
 namespace luastg::binding {
 	std::string_view const GameObject::class_name{ "lstg.GameObject"sv };
+
+	namespace {
+		std::byte game_object_clr_class_stub_key{};
+
+		// C# 对象包装表使用的空回调类存根（6 个槽位 + is_class）
+		int clrClassStubNoOp(lua_State* const vm) noexcept {
+			return 0;
+		}
+	}
+
+	void GameObject::createClrObjectWrapper(lua_State* const vm, uint32_t const id, luastg::GameObject* const object) {
+		lua::stack_balancer_t sb(vm);
+		lua::stack_t const ctx(vm);
+
+		// 取对象表与元表
+		lua_pushlightuserdata(vm, &game_object_tables_key);
+		lua_gettable(vm, LUA_REGISTRYINDEX); // t
+		auto const objects_table = ctx.index_of_top();
+
+		// 取（或创建）存根类
+		lua_pushlightuserdata(vm, &game_object_clr_class_stub_key);
+		lua_gettable(vm, LUA_REGISTRYINDEX); // t stub?
+		if (!ctx.is_table(-1)) {
+			ctx.pop_value(); // t
+			auto const stub = ctx.create_array(6);
+			for (int32_t i = 1; i <= 6; i += 1) {
+				lua_pushcfunction(vm, &clrClassStubNoOp);
+				lua_rawseti(vm, stub.value, i);
+			}
+			ctx.set_map_value(stub, "is_class"sv, true);
+			lua_pushlightuserdata(vm, &game_object_clr_class_stub_key);
+			ctx.push_value(stub);
+			lua_settable(vm, LUA_REGISTRYINDEX); // t stub
+		}
+		auto const stub_class = ctx.index_of_top();
+
+		// 创建包装表 { class, id, ptr }
+		auto const wrapper = ctx.create_array(3);
+		ctx.set_array_value(wrapper, 1, stub_class);
+		ctx.set_array_value(wrapper, 2, static_cast<int32_t>(id));
+		ctx.set_array_value(wrapper, 3, static_cast<void*>(object));
+
+		lua_pushlightuserdata(vm, &game_object_meta_table_key);
+		lua_gettable(vm, LUA_REGISTRYINDEX); // t stub wrapper mt
+		lua_setmetatable(vm, wrapper.value); // t stub wrapper
+
+		// objects[id + 1] = wrapper
+		ctx.set_array_value(objects_table, static_cast<int32_t>(id + 1), wrapper); // t stub
+	}
 
 	struct GameObjectBinding : GameObject {
 		// meta methods

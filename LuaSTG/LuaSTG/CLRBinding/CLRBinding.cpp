@@ -242,7 +242,7 @@ namespace luastg
 		void* fn = nullptr;
 		int const rc = host.loadAssemblyAndGetFunctionPointer(
 			core_assembly.c_str(),
-			L"LuaSTG.Core.LuaSTGAPI",
+			L"LuaSTG.Core.LuaSTGAPI, LuaSTG.Core", // 必须带程序集限定名（组件式加载的类型解析要求）
 			L"StartUp",
 			UNMANAGEDCALLERSONLY_METHOD,
 			&fn

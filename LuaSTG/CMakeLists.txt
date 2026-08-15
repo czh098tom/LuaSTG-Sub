@@ -296,6 +296,11 @@ if(LUASTG_ENABLE_CORECLR)
     message(STATUS "CoreCLR: using nethost from ${_nethost_dir}")
     target_include_directories(LuaSTG PRIVATE "${_nethost_dir}")
     target_link_libraries(LuaSTG PRIVATE "${_nethost_dir}/nethost.lib")
+    # nethost.dll 需要部署到可执行文件目录
+    add_custom_command(TARGET LuaSTG POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/bin
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_nethost_dir}/nethost.dll" ${CMAKE_BINARY_DIR}/bin/
+    )
 endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/import_luastg_options.cmake)

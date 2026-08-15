@@ -1,6 +1,7 @@
 #include "CLRBinding/CLRBinding.hpp"
 #include "AppFrame.h"
 #include "GameObject/GameObjectPool.h"
+#include "LuaBinding/modern/GameObject.hpp"
 
 using namespace luastg;
 
@@ -111,6 +112,10 @@ uintptr_t luastg::CLRBinding::gameObject_new(uint32_t const callback_mask)
 	features.has_callback_trigger = (callback_mask & (1u << 2)) != 0;
 	features.has_callback_legacy_kill = (callback_mask & (1u << 4)) != 0;
 	object->features = features;
+	// 在 Lua 对象表中注册包装表，使 Lua 侧也能访问该对象的引擎数据
+	if (auto* const vm = LAPP.GetLuaEngine(); vm != nullptr) {
+		luastg::binding::GameObject::createClrObjectWrapper(vm, static_cast<uint32_t>(object->id), object);
+	}
 	return reinterpret_cast<uintptr_t>(object);
 }
 

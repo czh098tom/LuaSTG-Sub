@@ -301,7 +301,9 @@ namespace LuaSTG
 
                 switch (_stage)
                 {
-                    case 1: // 验证回调分发与引擎运动更新
+                    case 1: // 验证回调分发与引擎运动更新（C# 侧自行驱动对象管线，与 Lua 主循环一致）
+                        // 每帧驱动：更新运动 + 帧末回收
+                        GameObjectManager.ObjFrame();
                         if (_frame == 3)
                         {
                             Check(_mover!.FrameCalls >= 1, "OnFrame 回调被引擎调用", $"{_mover.FrameCalls}");
@@ -315,18 +317,25 @@ namespace LuaSTG
                             foreach (var o in GameObjectManager.ObjList())
                             {
                                 found++;
-                                _ = o.Id;
+                                if (o.IsValid && !o.IsDestroyed)
+                                {
+                                    _ = o.Id;
+                                }
                             }
                             Check(found >= 1, "ObjList 迭代", $"{found}");
                         }
                         if (_frame == 6)
                         {
-                            GameObjectManager.ObjFrame();
-                            GameObjectManager.AfterFrame(); // 回收 Del/Kill 对象
+                            GameObjectManager.AfterFrame(); // 回收第 1 个 Del 对象
+                        }
+                        if (_frame == 7)
+                        {
+                            _mover!.Kill();
+                            GameObjectManager.AfterFrame(); // 回收 Kill 对象
                         }
                         if (_frame == 8)
                         {
-                            Check(!_mover!.IsValid || _mover.IsDestroyed, "回收后包装解除");
+                            Check(!_mover!.IsValid, "回收后包装解除");
                             GameObjectManager.ResetPool();
                             Finish();
                             _stage = -1;

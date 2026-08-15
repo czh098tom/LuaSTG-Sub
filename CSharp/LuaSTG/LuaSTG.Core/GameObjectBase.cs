@@ -778,10 +778,17 @@ namespace LuaSTG.Core
 
             private static bool Overrides(Type t, string methodName)
             {
-                var method = t.GetMethod(methodName,
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                    binder: null, types: Type.EmptyTypes, modifiers: null);
-                return method != null && method.DeclaringType != typeof(GameObjectBase);
+                // 按名称匹配任意签名（OnDestroy/OnColli 带参数）；覆写判定用 GetBaseDefinition
+                var methods = t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                foreach (var method in methods)
+                {
+                    if (method.Name == methodName
+                        && method.GetBaseDefinition().DeclaringType == typeof(GameObjectBase))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
         }
     }

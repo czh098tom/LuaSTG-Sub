@@ -21,3 +21,4 @@ DirectX/DirectXSDK/backup/*
 
 # AI
 /.claude/
+__pycache__/

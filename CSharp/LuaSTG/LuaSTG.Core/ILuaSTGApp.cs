@@ -1,42 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace LuaSTG.Core
+﻿namespace LuaSTG.Core
 {
     /// <summary>
-    /// Represents a LuaSTG application.
+    /// LuaSTG 托管应用。
+    /// 生命周期与 Lua 侧的 GameInit/FrameFunc/RenderFunc/GameExit 等全局函数一致。
     /// </summary>
     public interface ILuaSTGApp
     {
-        /// <summary>
-        /// Method called at the startup of the application.
-        /// </summary>
+        /// <summary>应用初始化时调用（引擎全部子系统就绪后）。</summary>
         void GameInit();
-        /// <summary>
-        /// Method called each frame.
-        /// </summary>
-        /// <returns> 
-        /// <see cref="true"/> if app has finished its execution.
-        /// </returns>
+
+        /// <summary>每帧调用。返回 true 表示应用执行完毕，请求退出。</summary>
         bool FrameFunc();
-        /// <summary>
-        /// Method called after frame for rendering.
-        /// </summary>
+
+        /// <summary>每帧渲染时调用。</summary>
         void RenderFunc();
-        /// <summary>
-        /// Method called when exiting application.
-        /// </summary>
+
+        /// <summary>应用退出时调用。</summary>
         void GameExit();
-        /// <summary>
-        /// Method called when application gain focus.
-        /// </summary>
+
+        /// <summary>窗口获得焦点时调用。</summary>
         void FocusGainFunc();
-        /// <summary>
-        /// Method called when application lose focus.
-        /// </summary>
+
+        /// <summary>窗口失去焦点时调用。</summary>
         void FocusLoseFunc();
+
+        /// <summary>窗口事件（焦点、尺寸变化等）。</summary>
+        void EventFunc(EngineEvent eventType, bool state);
     }
 }

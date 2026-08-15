@@ -1,27 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace LuaSTG.Core
+﻿namespace LuaSTG.Core
 {
     /// <summary>
-    /// Type of the destroy event.
+    /// 游戏对象销毁原因（与引擎侧 CLRGameObjectDestroyReason 保持一致）。
     /// </summary>
-    public enum DestroyEventType : int
+    public enum DestroyEventType : byte
     {
-        /// <summary>
-        /// Destroy by out-of-bounds.
-        /// </summary>
-        Bound = 0,
-        /// <summary>
-        /// Destroy by Del method.
-        /// </summary>
-        Del = 1,
-        /// <summary>
-        /// Destroy by Kill method.
-        /// </summary>
-        Kill = 2,
+        /// <summary>语言侧调用 Delete（lstg.Del）</summary>
+        Del = 0,
+        /// <summary>语言侧调用 Kill（lstg.Kill）</summary>
+        Kill = 1,
+        /// <summary>离开边界被回收</summary>
+        Bound = 2,
+        /// <summary>其他原因</summary>
+        Other = 3,
+    }
+
+    /// <summary>
+    /// 引擎窗口事件类型（与引擎侧 LuaEngine::EngineEvent 保持一致）。
+    /// </summary>
+    public enum EngineEvent : byte
+    {
+        Idle = 0,
+        WindowActive = 1,
+        WindowResize = 2,
     }
 }

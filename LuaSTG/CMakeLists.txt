@@ -217,6 +217,16 @@ set(LUASTG_ENGINE_SOURCES
     LuaSTG/ApplicationRestart.cpp
     LuaSTG/WindowsMain.cpp
 
+    LuaSTG/CLRBinding/CLRHost.cpp
+    LuaSTG/CLRBinding/CLRHost.hpp
+    LuaSTG/CLRBinding/CLRBinding.cpp
+    LuaSTG/CLRBinding/CLRBinding.hpp
+    LuaSTG/CLRBinding/CLRGameObject.cpp
+    LuaSTG/CLRBinding/CLRAppFrame.cpp
+    LuaSTG/CLRBinding/API/APIList.hpp
+    LuaSTG/CLRBinding/API/Core.hpp
+    LuaSTG/CLRBinding/API/GameObject.hpp
+
     LuaSTG/LuaSTG.manifest
 )
 source_group(TREE ${CMAKE_CURRENT_LIST_DIR} FILES ${LUASTG_ENGINE_SOURCES})
@@ -257,6 +267,37 @@ target_link_libraries(LuaSTG PRIVATE
     Core.Graphics
     LuaSTG.InternalLuaScriptsFileSystem
 )
+
+# CoreCLR (C#) 支持：链接 nethost 用于定位 hostfxr
+# C# 托管程序集使用 dotnet 单独构建（CSharp/LuaSTG/LuaSTG.sln）
+option(LUASTG_ENABLE_CORECLR "Enable .NET CoreCLR (C#) binding support" ON)
+if(LUASTG_ENABLE_CORECLR)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "[Aa][Rr][Mm]64")
+            set(_clr_arch "arm64")
+        else()
+            set(_clr_arch "x64")
+        endif()
+    else()
+        set(_clr_arch "x86")
+    endif()
+    set(LUASTG_NETHOST_DIR "" CACHE PATH "Directory containing nethost.lib/nethost.h (runtimes/win-<arch>/native)")
+    if(LUASTG_NETHOST_DIR)
+        set(_nethost_dir "${LUASTG_NETHOST_DIR}")
+    else()
+        # 在已安装的 .NET 中搜索 nethost（取最高版本）
+        file(GLOB _nethost_packs "$ENV{ProgramFiles}/dotnet/packs/Microsoft.NETCore.App.Host.win-${_clr_arch}/*/runtimes/win-${_clr_arch}/native")
+        if(NOT _nethost_packs)
+            message(FATAL_ERROR "未找到 nethost（.NET 未安装或缺少 win-${_clr_arch} 主机包），"
+                "请设置 LUASTG_NETHOST_DIR 指向 nethost.lib 所在目录，或设置 LUASTG_ENABLE_CORECLR=OFF 关闭")
+        endif()
+        list(SORT _nethost_packs ORDER DESCENDING)
+        list(GET _nethost_packs 0 _nethost_dir)
+    endif()
+    message(STATUS "CoreCLR: using nethost from ${_nethost_dir}")
+    target_include_directories(LuaSTG PRIVATE "${_nethost_dir}")
+    target_link_libraries(LuaSTG PRIVATE "${_nethost_dir}/nethost.lib")
+endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/import_luastg_options.cmake)
 

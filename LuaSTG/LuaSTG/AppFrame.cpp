@@ -10,6 +10,7 @@
 #include "utf8.hpp"
 #include "core/Configuration.hpp"
 #include "GameResource/SharedSpriteRenderer.hpp"
+#include "CLRBinding/CLRBinding.hpp"
 
 using namespace luastg;
 
@@ -189,6 +190,13 @@ bool AppFrame::Init()noexcept
 		return false;
 	}
 
+	//////////////////////////////////////// CoreCLR (C#) 运行时
+
+	// 初始化 CoreCLR（失败不致命，继续以纯 Lua 模式运行）
+	if (!InitCLR()) {
+		spdlog::warn("[luastg] CoreCLR 初始化失败，将以纯 Lua 模式运行");
+	}
+
 	//////////////////////////////////////// 应用程序模型、窗口子系统、图形子系统、音频子系统等
 
 	{
@@ -274,12 +282,22 @@ bool AppFrame::Init()noexcept
 		return false;
 	}
 
+	// CoreCLR GameInit
+	if (IsCLRActive()) {
+		m_CLR_functions->GameInit();
+	}
+
 	return true;
 }
 void AppFrame::Shutdown()noexcept
 {
 	if (L) {
 		SafeCallGlobalFunction(LuaEngine::G_CALLBACK_EngineStop);
+	}
+
+	// CoreCLR GameExit（在对象池销毁之前，保证托管侧仍能访问引擎数据）
+	if (IsCLRActive()) {
+		m_CLR_functions->GameExit();
 	}
 
 	m_GameObjectPool = nullptr;
@@ -291,6 +309,8 @@ void AppFrame::Shutdown()noexcept
 		L = nullptr;
 		spdlog::info("[luastg] 关闭luajit引擎");
 	}
+
+	ShutdownCLR();
 
 	m_stRenderTargetStack.clear();
 	m_ResourceMgr.ClearAllResource();
@@ -474,11 +494,14 @@ bool AppFrame::onUpdateInternal()
 			lua_pushboolean(L, false);
 			SafeCallGlobalFunctionB(LuaEngine::G_CALLBACK_EngineEvent, 2, 0);
 
+			CLRCallbackEventFunc((uint8_t)LuaEngine::EngineEvent::WindowActive, false);
+
 			if (!SafeCallGlobalFunction(LuaEngine::G_CALLBACK_FocusLoseFunc))
 			{
 				result = false;
 				core::ApplicationManager::requestExit();
 			}
+			CLRCallbackFocusLoseFunc();
 		}
 		if (window_active_changed & 0x1)
 		{
@@ -489,11 +512,14 @@ bool AppFrame::onUpdateInternal()
 			lua_pushboolean(L, true);
 			SafeCallGlobalFunctionB(LuaEngine::G_CALLBACK_EngineEvent, 2, 0);
 
+			CLRCallbackEventFunc((uint8_t)LuaEngine::EngineEvent::WindowActive, true);
+
 			if (!SafeCallGlobalFunction(LuaEngine::G_CALLBACK_FocusGainFunc))
 			{
 				result = false;
 				core::ApplicationManager::requestExit();
 			}
+			CLRCallbackFocusGainFunc();
 		}
 		if (window_active_changed & 0x4)
 		{
@@ -524,6 +550,11 @@ bool AppFrame::onUpdateInternal()
 		lua_pop(L, 1);
 		if (tAbort)
 			core::ApplicationManager::requestExit();
+		// 托管侧帧函数，返回 false 表示请求退出
+		if (result && !CLRCallbackFrameFunc())
+		{
+			core::ApplicationManager::requestExit();
+		}
 		m_ResourceMgr.UpdateSound();
 	}
 
@@ -545,6 +576,9 @@ bool AppFrame::onRenderInternal()
 	bool result = SafeCallGlobalFunction(LuaEngine::G_CALLBACK_EngineDraw);
 	if (!result)
 		core::ApplicationManager::requestExit();
+
+	// 托管侧渲染函数
+	CLRCallbackRenderFunc();
 
 	GetRenderTargetManager()->EndRenderTargetStack();
 

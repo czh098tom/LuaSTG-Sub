@@ -25,6 +25,9 @@ namespace luastg {
 		Destroyed,
 	};
 
+	class CLRHost;
+	struct ManagedAPI;
+
 	struct IRenderTargetManager {
 		// 渲染目标栈
 
@@ -108,6 +111,11 @@ namespace luastg {
 
 		// 输入设备
 		std::unique_ptr<Platform::DirectInput> m_DirectInput;
+
+		// CoreCLR (C#) 运行时
+		CLRHost* m_CLR_host = nullptr;
+		ManagedAPI* m_CLR_functions = nullptr;
+		bool m_CLR_active = false;
 
 	public:
 		/// @brief 保护模式执行脚本
@@ -303,17 +311,38 @@ namespace luastg {
 		core::Graphics::ITextRenderer* getTextRenderer() const noexcept { return m_text_renderer.get(); }
 		core::IAudioEngine* getAudioEngine() const noexcept { return m_audio_engine.get(); }
 
-	public:
-		/// @brief 初始化框架
-		/// @note 该函数必须在一开始被调用，且仅能调用一次
-		/// @return 失败返回false
-		bool Init()noexcept;
-		/// @brief 终止框架并回收资源
-		/// @note 该函数可以由框架自行调用，且仅能调用一次
-		void Shutdown()noexcept;
+public:
+	/// @brief 初始化框架
+	/// @note 该函数必须在一开始被调用，且仅能调用一次
+	/// @return 失败返回false
+	bool Init()noexcept;
+	/// @brief 终止框架并回收资源
+	/// @note 该函数可以由框架自行调用，且仅能调用一次
+	void Shutdown()noexcept;
 
-		/// @brief 执行框架，进入游戏循环
-		void Run()noexcept;
+	/// @brief 执行框架，进入游戏循环
+	void Run()noexcept;
+
+public: // CoreCLR (C#) 支持
+	/// @brief CoreCLR 是否处于激活状态
+	[[nodiscard]] bool IsCLRActive() const noexcept { return m_CLR_active; }
+	/// @brief 获取托管侧回调函数集（未激活时为 nullptr）
+	[[nodiscard]] ManagedAPI* GetCLRFunctions() noexcept { return m_CLR_functions; }
+
+	/// @brief 初始化 CoreCLR 并加载托管程序集，失败不致命（继续以纯 Lua 模式运行）
+	bool InitCLR() noexcept;
+	/// @brief 关闭 CoreCLR
+	void ShutdownCLR() noexcept;
+	/// @brief 调用托管侧帧函数，返回 false 表示托管侧请求退出
+	bool CLRCallbackFrameFunc() noexcept;
+	/// @brief 调用托管侧渲染函数
+	void CLRCallbackRenderFunc() noexcept;
+	/// @brief 调用托管侧失去焦点回调
+	void CLRCallbackFocusLoseFunc() noexcept;
+	/// @brief 调用托管侧获得焦点回调
+	void CLRCallbackFocusGainFunc() noexcept;
+	/// @brief 调用托管侧窗口事件回调
+	void CLRCallbackEventFunc(uint8_t event_type, uint8_t state) noexcept;
 
 	protected:
 		std::atomic_int m_window_active_changed{ 0 };

@@ -46,9 +46,6 @@ namespace LuaSTG.Core
         /// <summary>引擎对象指针，null 表示已被引擎回收</summary>
         internal NativeGameObject* _native;
 
-        /// <summary>语言侧是否已调用 Delete/Kill</summary>
-        private bool _userDestroyed;
-
         /// <summary>
         /// 分配一个引擎游戏对象。引擎回调（OnFrame 等）根据子类覆写情况自动启用。
         /// </summary>
@@ -75,23 +72,28 @@ namespace LuaSTG.Core
         // 未 Delete 的对象随引擎关闭统一回收；终结器中回调引擎可能发生在引擎关闭之后。
 
         // ========== 生命周期 ==========
+        // 生命周期完全跟随引擎（与 Lua 侧行为一致）：
+        // - Delete/Kill 仅把对象标记为待回收（status = Dead/Killed），并立即触发
+        //   OnDestroy 回调（回调内引擎数据仍可读写）；
+        // - 真正回收发生在帧末 GameObjectManager.AfterFrame()，引擎归还对象池并解除
+        //   C# 包装（_native = null）；
+        // - 回收之后再访问引擎数据抛出 <see cref="ObjectDisposedException"/>。
 
-        /// <summary>对象是否仍然有效（引擎对象存在且未被语言侧销毁）</summary>
+        /// <summary>对象是否仍然有效（引擎对象尚未被回收）</summary>
         public bool IsValid => _native != null;
 
-        /// <summary>对象是否已被语言侧销毁（Delete/Kill）或引擎回收</summary>
-        public bool IsDestroyed => _userDestroyed || _native == null;
+        /// <summary>对象是否已被引擎回收（Delete/Kill 标记后尚未回收时为 false，可用 <see cref="Status"/> 区分）</summary>
+        public bool IsDestroyed => _native == null;
 
         /// <summary>
         /// 删除对象（对应 lstg.Del）。
-        /// 若启用了销毁回调，会立即调用 <see cref="OnDestroy"/>；
-        /// 此后访问引擎数据将抛出异常，实际回收发生在帧末。
+        /// 仅标记待回收并按 Lua 语义立即触发 <see cref="OnDestroy"/>（回调内引擎数据仍可访问）；
+        /// 实际回收发生在帧末 <see cref="GameObjectManager.AfterFrame"/>，回收后访问抛出异常。
         /// </summary>
         public void Delete()
         {
             ThrowIfDestroyed();
             var hasCallback = LuaSTGAPI.api.gameObject_queueToFree((nuint)_native, 0) != 0;
-            _userDestroyed = true;
             if (hasCallback)
             {
                 OnDestroy(new DestroyEventArgs(DestroyEventType.Del));
@@ -100,14 +102,13 @@ namespace LuaSTG.Core
 
         /// <summary>
         /// 杀死对象（对应 lstg.Kill）。
-        /// 若启用了销毁回调，会立即调用 <see cref="OnDestroy"/>；
-        /// 此后访问引擎数据将抛出异常，实际回收发生在帧末。
+        /// 仅标记待回收并按 Lua 语义立即触发 <see cref="OnDestroy"/>（回调内引擎数据仍可访问）；
+        /// 实际回收发生在帧末 <see cref="GameObjectManager.AfterFrame"/>，回收后访问抛出异常。
         /// </summary>
         public void Kill()
         {
             ThrowIfDestroyed();
             var hasCallback = LuaSTGAPI.api.gameObject_queueToFree((nuint)_native, 1) != 0;
-            _userDestroyed = true;
             if (hasCallback)
             {
                 OnDestroy(new DestroyEventArgs(DestroyEventType.Kill));
@@ -115,14 +116,15 @@ namespace LuaSTG.Core
         }
 
         /// <summary>
-        /// 访问引擎数据前检查对象有效性。
+        /// 访问引擎数据前检查对象有效性（仅引擎真正回收后抛出，
+        /// Delete/Kill 标记期间引擎数据仍可访问，与 Lua 侧一致）。
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void ThrowIfDestroyed()
         {
-            if (_native == null || _userDestroyed)
+            if (_native == null)
             {
-                throw new ObjectDisposedException(GetType().Name, "游戏对象已被销毁");
+                throw new ObjectDisposedException(GetType().Name, "游戏对象已被引擎回收");
             }
         }
 
@@ -663,7 +665,7 @@ namespace LuaSTG.Core
             internal static void CallOnFrame(uint id)
             {
                 var obj = IdToObject[id];
-                if (obj == null || obj._userDestroyed)
+                if (obj == null)
                 {
                     return;
                 }
@@ -681,7 +683,7 @@ namespace LuaSTG.Core
             internal static void CallOnRender(uint id)
             {
                 var obj = IdToObject[id];
-                if (obj == null || obj._userDestroyed)
+                if (obj == null)
                 {
                     return;
                 }
@@ -699,9 +701,9 @@ namespace LuaSTG.Core
             internal static void CallOnDestroy(uint id, byte reason)
             {
                 var obj = IdToObject[id];
-                if (obj == null || obj._userDestroyed)
+                if (obj == null)
                 {
-                    return; // 语言侧 Delete/Kill 已调用过 OnDestroy
+                    return; // 包装已解除
                 }
                 try
                 {
@@ -717,7 +719,7 @@ namespace LuaSTG.Core
             internal static void CallOnColli(uint id, uint otherId)
             {
                 var obj = IdToObject[id];
-                if (obj == null || obj._userDestroyed)
+                if (obj == null)
                 {
                     return;
                 }

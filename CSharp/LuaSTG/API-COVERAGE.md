@@ -34,10 +34,16 @@ C# 侧 API（`LuaSTG.Core`）按 Lua 绑定逐模块移植，引擎 API 总数 *
 
 ## 对象生命周期约定
 
-- **引擎对象**（GameObject/BentLaserData/StopWatch/PostEffectShader/图形对象/Archive/Http 等）：
-  C# 包装持有原生句柄；能用无参构造的用无参构造（GameObject/StopWatch/BentLaserData），
-  需要参数的用工厂（`RenderTarget.Create` 等）；`Dispose()`/`Delete()`/`Kill()` 销毁；
-  **销毁状态访问引擎数据一律抛 `ObjectDisposedException`**。
+- **游戏对象（GameObject）完全跟随引擎生命周期**（与 Lua 侧行为一致）：
+  `Delete()`/`Kill()` 仅把对象标记为待回收（status = Dead/Killed）并立即触发
+  `OnDestroy` 回调（回调内引擎数据仍可读写）；同一帧内引擎数据照常访问，
+  引擎回调（OnFrame/OnRender/OnColli）照常分发；真正回收发生在帧末
+  `GameObjectManager.AfterFrame()`，引擎归还对象池并解除 C# 包装；
+  **回收之后再访问引擎数据抛 `ObjectDisposedException`**（`IsValid` 为 false）。
+- **引擎对象**（BentLaserData/StopWatch/PostEffectShader/图形对象/Archive/Http 等）：
+  C# 包装持有原生句柄；能用无参构造的用无参构造（StopWatch/BentLaserData），
+  需要参数的用工厂（`RenderTarget.Create` 等）；`Dispose()`/`Destroy()` 立即销毁引擎对象；
+  **销毁后访问一律抛 `ObjectDisposedException`**。
 - **值类型**（Color/Vector/TextMetrics/RNG）：无生命周期。
 - **池内资源**（纹理/精灵等）：以名字标识、引擎资源池持有；包装类 `Destroy()` 即从池移除。
 - **语言侧自身数据不互通**：C# 包装类的托管字段与 Lua 对象表的自定义字段互不可见；

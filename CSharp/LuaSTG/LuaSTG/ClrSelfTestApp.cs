@@ -86,11 +86,13 @@ namespace LuaSTG
             var fromHsv = Color.FromAHSV(100, 0, 100, 100);
             Check(fromHsv.R == 255 && fromHsv.G == 0, "Color HSV 换算", $"{fromHsv.R},{fromHsv.G},{fromHsv.B}");
 
-            // StopWatch（引擎对象生命周期）
+            // StopWatch（引擎对象生命周期；注意 Pause/Resume 须成对使用，与原版 fcyStopWatch 一致）
             using (var watch = new StopWatch())
             {
-                watch.Resume();
                 Check(watch.GetElapsed() >= 0.0, "StopWatch 计时");
+                watch.Pause();
+                watch.Resume();
+                Check(watch.GetElapsed() >= 0.0, "StopWatch 暂停恢复");
             }
             var disposedWatch = new StopWatch();
             disposedWatch.Dispose();
@@ -159,6 +161,7 @@ namespace LuaSTG
         {
             public int FrameCalls;
             public DestroyEventType? DestroyReason;
+            public double? XAtDestroy;
 
             public override void OnFrame()
             {
@@ -168,6 +171,7 @@ namespace LuaSTG
             public override void OnDestroy(DestroyEventArgs args)
             {
                 DestroyReason = args.DestroyEventType;
+                XAtDestroy = X; // 回调内访问引擎数据（跟随生命周期语义下必须可用）
             }
 
             public override void OnColli(Collision collision)
@@ -197,14 +201,13 @@ namespace LuaSTG
             bullet.Timer = 99;
             Check(bullet.Timer == 99, "Timer 读写");
 
-            // 3. Delete 后访问抛异常
+            // 3. Delete 仅标记待回收（跟随引擎生命周期，与 Lua 一致）
             bullet.Delete();
-            Check(bullet.IsDestroyed, "Delete 后 IsDestroyed");
-            var threw = false;
-            try { _ = bullet.X; }
-            catch (ObjectDisposedException) { threw = true; }
-            Check(threw, "Delete 后访问引擎数据抛异常");
+            Check(!bullet.IsDestroyed, "Delete 后尚未回收（IsDestroyed=false）");
+            Check(bullet.Status == GameObjectStatus.Dead, "Delete 后 Status=Dead", $"{bullet.Status}");
+            Check(Math.Abs(bullet.X - 123.5) < 1e-9, "Delete 后引擎数据仍可访问");
             Check(bullet.DestroyReason == DestroyEventType.Del, "Delete 触发 OnDestroy(Del)", $"{bullet.DestroyReason}");
+            Check(bullet.XAtDestroy is >= 123.4 and <= 123.6, "OnDestroy 回调内可访问引擎数据", $"{bullet.XAtDestroy}");
 
             // 4. 引擎数据可从引擎侧访问（对象仍在池中，AfterFrame 后回收）
             var countBefore = GameObjectManager.GetObjectCount();
